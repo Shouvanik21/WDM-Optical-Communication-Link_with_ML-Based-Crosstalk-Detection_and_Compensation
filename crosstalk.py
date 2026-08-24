@@ -5,42 +5,38 @@ class CrosstalkModel:
 
     def __init__(self, coupling_coefficient=0.001):
 
-        #The coefficient tells us how much unwanted power from another channel contributes to the victim channel in our simplified model.
         self.coupling_coefficient = coupling_coefficient
 
-    def calculate_crosstalk(self, powers_mw):
+    def calculate_crosstalk(self, signals):
 
-        #powers_mw contains power of all channels currently
-        number_of_channels = len(powers_mw)
+        number_of_channels = len(signals)
 
-        #creates a list of empty values like np.zeros(4)=>[0,0,0,0]
-        crosstalk_power = np.zeros(number_of_channels)
+        crosstalk_signals = []
 
-        #calculate crosstalk for every channel
         for i in range(number_of_channels):
 
-            unwanted_power = 0
+            unwanted_signal = np.zeros_like(signals[i], dtype=float)
 
-            #for each victim channel check every other channel
             for j in range(number_of_channels):
 
                 if i != j:
 
-                    unwanted_power += powers_mw[j] * self.coupling_coefficient
+                    unwanted_signal += signals[j] * self.coupling_coefficient
 
-            crosstalk_power[i] = unwanted_power
+            crosstalk_signals.append(unwanted_signal)
 
-        return crosstalk_power
+        return crosstalk_signals
 
-    #This converts crosstalk to dB relative to the desired signal.
-    def calculate_xt_db(self, signal_power, crosstalk_power):
+    def add_crosstalk(self, signals):
 
-        if crosstalk_power <= 0:
+        crosstalk_signals = self.calculate_crosstalk(signals)
 
-            return -100
+        received_signals = []
 
-        xt_ratio = crosstalk_power / signal_power
+        for i in range(len(signals)):
 
-        xt_db = 10 * np.log10(xt_ratio)
+            received_signal = signals[i] + crosstalk_signals[i]
 
-        return xt_db
+            received_signals.append(received_signal)
+
+        return received_signals

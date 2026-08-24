@@ -1,3 +1,6 @@
+import numpy as np
+
+
 class OpticalFiber:
 
     def __init__(self, length_km=50, attenuation_db_per_km=0.2, dispersion_ps_nm_km=17):
@@ -20,10 +23,18 @@ class OpticalFiber:
 
         return dispersion
 
-    def transmit(self, power_dbm):
+    def get_power_factor(self):
 
-        fiber_loss = self.calculate_loss()
+        loss_db = self.calculate_loss()
 
-        received_power = power_dbm - fiber_loss
+        power_factor = 10 ** (-loss_db / 10)
 
-        return received_power
+        return power_factor
+
+    def transmit_signal(self, signal):
+
+        power_factor = self.get_power_factor()
+
+        received_signal = signal * power_factor
+
+        return received_signal

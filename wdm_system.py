@@ -1,3 +1,5 @@
+#this the main WDM model that displays channel no,data wavelength through it and power contained in each signal wavelength
+
 import numpy as np
 
 

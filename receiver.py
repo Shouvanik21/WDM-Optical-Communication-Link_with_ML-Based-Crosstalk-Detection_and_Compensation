@@ -1,3 +1,6 @@
+import numpy as np
+
+
 class OpticalReceiver:
 
     def __init__(self, responsivity=0.8, sensitivity_dbm=-18):
@@ -6,6 +9,18 @@ class OpticalReceiver:
 
         self.sensitivity_dbm = sensitivity_dbm
 
+    def detect_signal(self, optical_signal):
+
+        electrical_signal = optical_signal * self.responsivity
+
+        return electrical_signal
+
+    def make_decision(self, electrical_signal, threshold=0.00004):
+
+        detected_bits = (electrical_signal >= threshold).astype(int)
+
+        return detected_bits
+
     def dbm_to_watt(self, power_dbm):
 
         power_mw = 10 ** (power_dbm / 10)
@@ -13,21 +28,3 @@ class OpticalReceiver:
         power_watt = power_mw / 1000
 
         return power_watt
-
-    def convert_to_current(self, power_dbm):
-
-        power_watt = self.dbm_to_watt(power_dbm)
-
-        current = self.responsivity * power_watt
-
-        return current
-
-    def check_sensitivity(self, power_dbm):
-
-        if power_dbm >= self.sensitivity_dbm:
-
-            return "GOOD"
-
-        else:
-
-            return "LOW"
