@@ -3,111 +3,143 @@ import random
 
 from simulation import WDMSimulator
 
-# --------------------------------------
-# Dataset settings
-# --------------------------------------
-
-NUMBER_OF_EXPERIMENTS = 1000
+SAMPLES_PER_CLASS = 1000
 
 
-# --------------------------------------
-# Decide system condition
-# --------------------------------------
+def generate_experiment(coupling_min, coupling_max):
 
+    fiber_length = random.uniform(20, 100)
 
-def classify_condition(ber):
+    coupling = random.uniform(coupling_min, coupling_max)
 
-    if ber < 0.001:
+    noise_level = random.uniform(0.000001, 0.00002)
 
-        return 0
+    simulator = WDMSimulator(
+        number_of_channels=4,
+        number_of_bits=100,
+        samples_per_bit=20,
+        fiber_length=fiber_length,
+        attenuation=0.2,
+        dispersion=17,
+        coupling=coupling,
+        noise_level=noise_level,
+    )
 
-    elif ber < 0.05:
+    result = simulator.run()
 
-        return 1
-
-    else:
-
-        return 2
-
-
-# --------------------------------------
-# Generate dataset
-# --------------------------------------
+    return result
 
 
 def generate_dataset():
 
     rows = []
 
-    for experiment in range(NUMBER_OF_EXPERIMENTS):
+    # ======================================
+    # NORMAL
+    # ======================================
 
-        # Random system parameters
+    for i in range(SAMPLES_PER_CLASS):
 
-        fiber_length = random.uniform(20, 100)
+        result = generate_experiment(0.0001, 0.005)
 
-        coupling = random.uniform(0.0001, 0.05)
-
-        noise_level = random.uniform(0.000001, 0.0001)
-
-        # Create simulator
-
-        simulator = WDMSimulator(
-            number_of_channels=4,
-            number_of_bits=100,
-            samples_per_bit=20,
-            fiber_length=fiber_length,
-            attenuation=0.2,
-            dispersion=17,
-            coupling=coupling,
-            noise_level=noise_level,
+        rows.append(
+            [
+                result["snr_db"],
+                result["received_power"],
+                result["noise_level"],
+                result["fiber_loss_db"],
+                result["dispersion_ps"],
+                result["average_crosstalk"],
+                result["crosstalk_db"],
+                result["ber"],
+                0,
+            ]
         )
 
-        # Run simulation
+    # ======================================
+    # WARNING
+    # ======================================
 
-        result = simulator.run()
+    for i in range(SAMPLES_PER_CLASS):
 
-        # Get measurements
+        result = generate_experiment(0.005, 0.02)
 
-        ber = result["ber"]
+        rows.append(
+            [
+                result["snr_db"],
+                result["received_power"],
+                result["noise_level"],
+                result["fiber_loss_db"],
+                result["dispersion_ps"],
+                result["average_crosstalk"],
+                result["crosstalk_db"],
+                result["ber"],
+                1,
+            ]
+        )
 
-        snr = result["snr_db"]
+    # ======================================
+    # CRITICAL
+    # ======================================
 
-        fiber_loss = result["fiber_loss_db"]
+    for i in range(SAMPLES_PER_CLASS):
 
-        dispersion = result["dispersion_ps"]
+        result = generate_experiment(0.02, 0.05)
 
-        # Determine label
+        rows.append(
+            [
+                result["snr_db"],
+                result["received_power"],
+                result["noise_level"],
+                result["fiber_loss_db"],
+                result["dispersion_ps"],
+                result["average_crosstalk"],
+                result["crosstalk_db"],
+                result["ber"],
+                2,
+            ]
+        )
 
-        label = classify_condition(ber)
+    # Shuffle dataset
 
-        # Create dataset row
+    random.shuffle(rows)
 
-        row = [coupling, noise_level, snr, ber, fiber_loss, dispersion, label]
-
-        rows.append(row)
-
-    # ----------------------------------
-    # Save CSV
-    # ----------------------------------
+    # ======================================
+    # SAVE CSV
+    # ======================================
 
     with open("wdm_dataset.csv", "w", newline="") as file:
 
         writer = csv.writer(file)
 
         writer.writerow(
-            ["crosstalk", "noise", "snr", "ber", "fiber_loss", "dispersion", "label"]
+            [
+                "snr",
+                "received_power",
+                "noise",
+                "fiber_loss",
+                "dispersion",
+                "average_crosstalk",
+                "crosstalk_db",
+                "ber",
+                "label",
+            ]
         )
 
         writer.writerows(rows)
 
-    print("\nDataset generated successfully!")
+    print()
 
-    print("Experiments:", NUMBER_OF_EXPERIMENTS)
+    print("Dataset generated successfully!")
 
+    print("Total samples:", len(rows))
 
-# --------------------------------------
-# Start program
-# --------------------------------------
+    print("NORMAL:", SAMPLES_PER_CLASS)
+
+    print("WARNING:", SAMPLES_PER_CLASS)
+
+    print("CRITICAL:", SAMPLES_PER_CLASS)
+
 
 if __name__ == "__main__":
 

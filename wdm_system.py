@@ -1,5 +1,3 @@
-#this the main WDM model that displays channel no,data wavelength through it and power contained in each signal wavelength
-
 import numpy as np
 
 
@@ -9,14 +7,47 @@ class WDMSystem:
 
         self.number_of_channels = number_of_channels
 
-        # Wavelengths in nanometers
-        self.wavelengths = np.array([1550, 1550.4, 1550.8, 1551.2])
+        # ======================================
+        # WDM wavelengths
+        # ======================================
+        #
+        # Four optical channels are placed at
+        # different wavelengths.
+        #
+        # Channel 1 -> 1550.0 nm
+        # Channel 2 -> 1550.4 nm
+        # Channel 3 -> 1550.8 nm
+        # Channel 4 -> 1551.2 nm
+        #
+        # Spacing = 0.4 nm
+        #
 
-        # Optical power of each transmitter in dBm at starting
-        self.transmit_power = np.array([0, 0, 0, 0])
+        base_wavelength = 1550.0
 
-        # Channel spacing in GHz
+        wavelength_spacing = 0.4
+
+        self.wavelengths = (
+            base_wavelength + np.arange(self.number_of_channels) * wavelength_spacing
+        )
+
+        # ======================================
+        # Transmitter optical power
+        # ======================================
+        #
+        # 0 dBm = 1 mW
+        #
+
+        self.transmit_power = np.zeros(self.number_of_channels)
+
+        # ======================================
+        # Channel spacing
+        # ======================================
+
         self.channel_spacing = 50
+
+    # ==========================================
+    # Display WDM channels
+    # ==========================================
 
     def display_channels(self):
 
@@ -36,3 +67,47 @@ class WDMSystem:
             )
 
         print("Channel spacing:", self.channel_spacing, "GHz")
+
+    # ==========================================
+    # Get wavelength of a channel
+    # ==========================================
+
+    def get_wavelength(self, channel):
+
+        if channel < 0 or channel >= self.number_of_channels:
+
+            raise ValueError("Invalid channel number.")
+
+        return float(self.wavelengths[channel])
+
+    # ==========================================
+    # Get all wavelengths
+    # ==========================================
+
+    def get_wavelengths(self):
+
+        return self.wavelengths.copy()
+
+    # ==========================================
+    # Get transmitter power
+    # ==========================================
+
+    def get_transmit_power(self, channel):
+
+        if channel < 0 or channel >= self.number_of_channels:
+
+            raise ValueError("Invalid channel number.")
+
+        return float(self.transmit_power[channel])
+
+    # ==========================================
+    # Convert dBm to Watts
+    # ==========================================
+
+    def dbm_to_watt(self, power_dbm):
+
+        power_mw = 10 ** (power_dbm / 10)
+
+        power_watt = power_mw / 1000
+
+        return float(power_watt)

@@ -24,19 +24,14 @@ class WDMSimulator:
     ):
 
         self.number_of_channels = number_of_channels
-
         self.number_of_bits = number_of_bits
-
         self.samples_per_bit = samples_per_bit
 
         self.fiber_length = fiber_length
-
         self.attenuation = attenuation
-
         self.dispersion = dispersion
 
         self.coupling = coupling
-
         self.noise_level = noise_level
 
         self.wdm = WDMSystem(number_of_channels=number_of_channels)
@@ -55,12 +50,11 @@ class WDMSimulator:
 
     def run(self):
 
-        # --------------------------------
-        # Generate channel signals
-        # --------------------------------
+        # ======================================
+        # 1. Generate channel signals
+        # ======================================
 
         channel_bits = []
-
         channel_waveforms = []
 
         for i in range(self.number_of_channels):
@@ -68,12 +62,11 @@ class WDMSimulator:
             bits, waveform = self.generator.generate_signal()
 
             channel_bits.append(bits)
-
             channel_waveforms.append(waveform)
 
-        # --------------------------------
-        # Fiber transmission
-        # --------------------------------
+        # ======================================
+        # 2. Fiber transmission
+        # ======================================
 
         fiber_signals = []
 
@@ -83,19 +76,25 @@ class WDMSimulator:
 
             fiber_signals.append(signal)
 
-        # --------------------------------
-        # Crosstalk
-        # --------------------------------
+        fiber_signals = np.array(fiber_signals)
+
+        # ======================================
+        # 3. Crosstalk
+        # ======================================
 
         crosstalk_model = CrosstalkModel(coupling_coefficient=self.coupling)
 
         crosstalk_signals = crosstalk_model.calculate_crosstalk(fiber_signals)
 
+        crosstalk_signals = np.array(crosstalk_signals)
+
         signals_with_crosstalk = crosstalk_model.add_crosstalk(fiber_signals)
 
-        # --------------------------------
-        # Noise
-        # --------------------------------
+        signals_with_crosstalk = np.array(signals_with_crosstalk)
+
+        # ======================================
+        # 4. Add noise
+        # ======================================
 
         noisy_signals = []
 
@@ -107,12 +106,13 @@ class WDMSimulator:
 
             noisy_signals.append(noisy_signal)
 
-        # --------------------------------
-        # Receiver
-        # --------------------------------
+        noisy_signals = np.array(noisy_signals)
+
+        # ======================================
+        # 5. Receiver
+        # ======================================
 
         received_bits = []
-
         ber_values = []
 
         for channel in range(self.number_of_channels):
@@ -143,47 +143,135 @@ class WDMSimulator:
 
             ber_values.append(ber)
 
-        # --------------------------------
-        # Calculate measurements
-        # --------------------------------
+        # ======================================
+        # 6. Fiber measurements
+        # ======================================
 
         fiber_loss = self.fiber.calculate_loss()
 
         dispersion_value = self.fiber.calculate_dispersion(wavelength_width=0.1)
 
-        # Average crosstalk
-        average_crosstalk = np.mean([np.mean(signal) for signal in crosstalk_signals])
+        # ======================================
+        # 7. Target channel measurements
+        # ======================================
 
-        # Signal power
-        signal_power = np.mean(fiber_signals[0] ** 2)
+        desired_signal = fiber_signals[0]
 
-        # Noise power
-        noise_power = self.noise_level**2
+        interference_signal = crosstalk_signals[0]
 
-        if noise_power > 0:
+        received_signal = noisy_signals[0]
 
-            snr = signal_power / noise_power
+        signal_power = float(np.mean(desired_signal**2))
 
-            snr_db = 10 * np.log10(snr)
+        interference_power = float(np.mean(interference_signal**2))
 
-        else:
+        noise_power = float(self.noise_level**2)
 
-            snr_db = float("inf")
+        epsilon = 1e-12
 
-        # --------------------------------
-        # Return everything
-        # --------------------------------
+        # ======================================
+        # 8. SNR
+        # ======================================
+
+        snr = signal_power / (noise_power + epsilon)
+
+        snr_db = 10 * np.log10(snr + epsilon)
+
+        # ======================================
+        # 9. Crosstalk ratio
+        # ======================================
+
+        crosstalk_ratio = interference_power / (signal_power + epsilon)
+
+        crosstalk_db = 10 * np.log10(crosstalk_ratio + epsilon)
+
+        # ======================================
+        # 10. Received power
+        # ======================================
+
+        received_power = float(np.mean(received_signal**2))
+
+        # ======================================
+        # 11. Average crosstalk
+        # ======================================
+
+        average_crosstalk = float(np.mean(np.abs(crosstalk_signals)))
+
+        # ======================================
+        # 12. BER
+        # ======================================
+
+        average_ber = float(np.mean(ber_values))
+
+        # ======================================
+        # 13. Bit errors
+        # ======================================
+
+        total_bit_errors = int(
+            sum(
+                np.sum(channel_bits[i] != received_bits[i])
+                for i in range(self.number_of_channels)
+            )
+        )
+
+        # ======================================
+        # 14. Crosstalk compensation
+        # ======================================
+
+        # In this simulation we know the
+        # interference waveform exactly.
+        #
+        # A real system would estimate it.
+
+        compensated_signal = received_signal - interference_signal
+
+        # ======================================
+        # 15. Compensated receiver
+        # ======================================
+
+        compensated_electrical = self.receiver.detect_signal(compensated_signal)
+
+        compensated_sample_bits = self.receiver.make_decision(compensated_electrical)
+
+        compensated_bits = []
+
+        for bit_index in range(self.number_of_bits):
+
+            start = bit_index * self.samples_per_bit
+
+            end = start + self.samples_per_bit
+
+            samples = compensated_sample_bits[start:end]
+
+            bit = int(np.mean(samples) >= 0.5)
+
+            compensated_bits.append(bit)
+
+        compensated_bits = np.array(compensated_bits)
+
+        compensated_ber = calculate_ber(channel_bits[0], compensated_bits)
+
+        # ======================================
+        # 16. Return results
+        # ======================================
 
         result = {
-            "fiber_loss_db": fiber_loss,
-            "dispersion_ps": dispersion_value,
-            "crosstalk": self.coupling,
-            "noise_level": self.noise_level,
-            "snr_db": snr_db,
-            "ber": float(np.mean(ber_values)),
+            "fiber_loss_db": float(fiber_loss),
+            "dispersion_ps": float(dispersion_value),
+            "crosstalk": float(self.coupling),
+            "noise_level": float(self.noise_level),
+            "snr_db": float(snr_db),
+            "ber": average_ber,
+            "received_power": received_power,
+            "average_crosstalk": average_crosstalk,
+            "crosstalk_db": float(crosstalk_db),
+            "bit_errors": total_bit_errors,
             "channel_ber": ber_values,
-            "received_power": float(np.mean(fiber_signals[0])),
-            "bit_errors": int(np.sum(ber_values)),
+            "compensated_ber": float(compensated_ber),
+            "compensated_signal": compensated_signal,
+            "received_signal": received_signal,
+            "interference_signal": interference_signal,
+            "desired_signal": desired_signal,
         }
 
         return result

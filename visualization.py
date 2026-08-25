@@ -1,5 +1,9 @@
 import matplotlib.pyplot as plt
 
+# ==========================================
+# SIGNAL TRANSFORMATION
+# ==========================================
+
 
 def plot_signals(
     original_signal, fiber_signal, crosstalk_signal, noisy_signal, number_of_samples=200
@@ -18,7 +22,8 @@ def plot_signals(
     plt.plot(samples, noisy_signal[:number_of_samples], label="After Noise")
 
     plt.xlabel("Sample")
-    plt.ylabel("Signal Amplitude")
+
+    plt.ylabel("Optical Power (W)")
 
     plt.title("WDM Channel Signal Transformation")
 
@@ -26,7 +31,14 @@ def plot_signals(
 
     plt.grid()
 
+    plt.tight_layout()
+
     plt.show()
+
+
+# ==========================================
+# CROSSTALK VS BER
+# ==========================================
 
 
 def plot_ber(crosstalk_values, ber_values):
@@ -37,10 +49,38 @@ def plot_ber(crosstalk_values, ber_values):
 
     plt.xlabel("Crosstalk Coupling Coefficient")
 
-    plt.ylabel("BER")
+    plt.ylabel("Bit Error Rate (BER)")
 
     plt.title("Effect of Crosstalk on BER")
 
     plt.grid()
+
+    plt.tight_layout()
+
+    plt.show()
+
+
+# ==========================================
+# BER BEFORE VS AFTER COMPENSATION
+# ==========================================
+
+
+def plot_compensation(ber_before, ber_after):
+
+    labels = ["Before Compensation", "After Compensation"]
+
+    values = [ber_before, ber_after]
+
+    plt.figure(figsize=(8, 5))
+
+    plt.bar(labels, values)
+
+    plt.ylabel("Bit Error Rate (BER)")
+
+    plt.title("BER Before and After Crosstalk Compensation")
+
+    plt.grid(axis="y")
+
+    plt.tight_layout()
 
     plt.show()

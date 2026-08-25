@@ -11,17 +11,30 @@ class OpticalFiber:
 
         self.dispersion_ps_nm_km = dispersion_ps_nm_km
 
+    # ======================================
+    # Calculate total fiber attenuation
+    # ======================================
+
     def calculate_loss(self):
 
         loss = self.length_km * self.attenuation_db_per_km
 
-        return loss
+        return float(loss)
+
+    # ======================================
+    # Calculate chromatic dispersion
+    # ======================================
 
     def calculate_dispersion(self, wavelength_width):
 
         dispersion = abs(self.dispersion_ps_nm_km) * self.length_km * wavelength_width
 
-        return dispersion
+        return float(dispersion)
+
+    # ======================================
+    # Convert fiber loss from dB into
+    # linear power transmission factor
+    # ======================================
 
     def get_power_factor(self):
 
@@ -29,12 +42,40 @@ class OpticalFiber:
 
         power_factor = 10 ** (-loss_db / 10)
 
-        return power_factor
+        return float(power_factor)
+
+    # ======================================
+    # Transmit optical signal
+    # ======================================
 
     def transmit_signal(self, signal):
 
         power_factor = self.get_power_factor()
 
-        received_signal = signal * power_factor
+        received_signal = np.asarray(signal) * power_factor
 
         return received_signal
+
+    # ======================================
+    # Calculate input signal power
+    # ======================================
+
+    def calculate_input_power(self, signal):
+
+        signal = np.asarray(signal)
+
+        power = np.mean(signal**2)
+
+        return float(power)
+
+    # ======================================
+    # Calculate output signal power
+    # ======================================
+
+    def calculate_output_power(self, signal):
+
+        transmitted_signal = self.transmit_signal(signal)
+
+        power = np.mean(transmitted_signal**2)
+
+        return float(power)
