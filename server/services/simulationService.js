@@ -1,40 +1,113 @@
-const generateSimulation = () => {
-  const fiberLoss = 10;
-  const dispersion = 85;
+const { spawn } = require("child_process");
+const path = require("path");
 
-  const snr = Number((10 + Math.random() * 5).toFixed(4));
+const runPythonSimulation = () => {
+  return new Promise((resolve, reject) => {
+    const pythonProjectPath = path.resolve(__dirname, "../../python");
 
-  const crosstalkDb = Number((-5 - Math.random() * 5).toFixed(4));
+    const pythonProcess = spawn("python", ["main.py"], {
+      cwd: pythonProjectPath,
+    });
 
-  const berBefore = Number((0.04 + Math.random() * 0.04).toFixed(4));
+    let output = "";
+    let errorOutput = "";
 
-  const berAfter = Number(
-    (berBefore * (0.05 + Math.random() * 0.1)).toFixed(4),
+    pythonProcess.stdout.on("data", (data) => {
+      output += data.toString();
+    });
+
+    pythonProcess.stderr.on("data", (data) => {
+      errorOutput += data.toString();
+    });
+
+    pythonProcess.on("close", (code) => {
+      if (code !== 0) {
+        return reject(
+          new Error(errorOutput || `Python process exited with code ${code}`),
+        );
+      }
+
+      try {
+        const result = parsePythonOutput(output);
+
+        resolve(result);
+      } catch (error) {
+        reject(error);
+      }
+    });
+  });
+};
+
+const parsePythonOutput = (output) => {
+  const fiberLossMatch = output.match(/Fiber Loss\s*:\s*([-+]?\d*\.?\d+)/);
+
+  const dispersionMatch = output.match(/Dispersion\s*:\s*([-+]?\d*\.?\d+)/);
+
+  const snrMatch = output.match(/SNR\s*:\s*([-+]?\d*\.?\d+)/);
+
+  const receivedPowerMatch = output.match(
+    /Received Power\s*:\s*([-+]?\d*\.?\d+)/,
   );
 
-  const berImprovement = Number(
-    (((berBefore - berAfter) / berBefore) * 100).toFixed(2),
+  const noiseMatch = output.match(/Noise Level\s*:\s*([-+]?\d*\.?\d+)/);
+
+  const crosstalkMatch = output.match(/Crosstalk\s*:\s*([-+]?\d*\.?\d+)/);
+
+  const berMatch = output.match(/BER\s*:\s*([-+]?\d*\.?\d+)/);
+
+  const severityMatch = output.match(
+    /Predicted Severity:\s*(NORMAL|WARNING|CRITICAL)/,
   );
 
-  const severity = "CRITICAL";
+  const confidenceMatch = output.match(/CRITICAL\s*:\s*([\d.]+)%/);
 
-  const confidence = Number((90 + Math.random() * 8).toFixed(2));
+  const berBeforeMatch = output.match(/BER Before\s*:\s*([-+]?\d*\.?\d+)/);
+
+  const berAfterMatch = output.match(/BER After\s*:\s*([-+]?\d*\.?\d+)/);
+
+  const improvementMatch = output.match(
+    /BER Improvement\s*:\s*([-+]?\d*\.?\d+)%/,
+  );
+
+  if (
+    !fiberLossMatch ||
+    !dispersionMatch ||
+    !snrMatch ||
+    !crosstalkMatch ||
+    !berMatch ||
+    !severityMatch ||
+    !berBeforeMatch ||
+    !berAfterMatch ||
+    !improvementMatch
+  ) {
+    throw new Error("Unable to parse Python simulation output.");
+  }
 
   return {
-    fiberLoss,
-    dispersion,
-    snr,
-    receivedPower: 0.00000001,
-    noiseLevel: 0.00002,
-    crosstalkDb,
-    berBefore,
-    berAfter,
-    berImprovement,
-    severity,
-    confidence,
+    fiberLoss: Number(fiberLossMatch[1]),
+
+    dispersion: Number(dispersionMatch[1]),
+
+    snr: Number(snrMatch[1]),
+
+    receivedPower: receivedPowerMatch ? Number(receivedPowerMatch[1]) : 0,
+
+    noiseLevel: noiseMatch ? Number(noiseMatch[1]) : 0,
+
+    crosstalkDb: Number(crosstalkMatch[1]),
+
+    berBefore: Number(berBeforeMatch[1]),
+
+    berAfter: Number(berAfterMatch[1]),
+
+    berImprovement: Number(improvementMatch[1]),
+
+    severity: severityMatch[1],
+
+    confidence: confidenceMatch ? Number(confidenceMatch[1]) : 0,
   };
 };
 
 module.exports = {
-  generateSimulation,
+  runPythonSimulation,
 };

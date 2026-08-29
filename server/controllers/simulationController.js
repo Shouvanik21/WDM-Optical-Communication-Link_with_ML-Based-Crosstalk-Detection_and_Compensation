@@ -1,23 +1,28 @@
 const Simulation = require("../models/Simulation");
-const { generateSimulation } = require("../services/simulationService");
+
+const { runPythonSimulation } = require("../services/simulationService");
 
 const runSimulation = async (req, res) => {
   try {
-    const simulationData = generateSimulation();
+    console.log("Starting Python WDM simulation...");
+
+    const simulationData = await runPythonSimulation();
 
     const simulation = await Simulation.create(simulationData);
 
+    console.log("Python simulation completed successfully.");
+
     res.status(201).json({
       success: true,
-      message: "WDM simulation completed",
+      message: "WDM simulation completed successfully",
       data: simulation,
     });
   } catch (error) {
-    console.error(error);
+    console.error("Simulation Error:", error.message);
 
     res.status(500).json({
       success: false,
-      message: "Simulation failed",
+      message: "WDM simulation failed",
       error: error.message,
     });
   }
@@ -25,10 +30,12 @@ const runSimulation = async (req, res) => {
 
 const getSimulations = async (req, res) => {
   try {
-    const simulations = await Simulation.find().sort({ createdAt: -1 });
+    const simulations = await Simulation.find().sort({
+      createdAt: -1,
+    });
 
-    if (simulations.length==0) {
-      return res.status(404).json({
+    if (simulations.length == 0) {
+      return res.staus(404).json({
         success: false,
         message: "No simulation found",
       });
@@ -50,7 +57,9 @@ const getSimulations = async (req, res) => {
 
 const getLatestSimulation = async (req, res) => {
   try {
-    const simulation = await Simulation.findOne().sort({ createdAt: -1 });
+    const simulation = await Simulation.findOne().sort({
+      createdAt: -1,
+    });
 
     if (!simulation) {
       return res.status(404).json({

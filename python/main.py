@@ -4,6 +4,7 @@
 
 import os
 import joblib
+import sys
 from pathlib import Path
 
 from simulation.simulation import WDMSimulator
@@ -215,30 +216,30 @@ print("==========================================")
 # VISUALIZATION
 # ======================================
 
-print()
-print("Opening signal visualization...")
+if "--visualize" in sys.argv:
 
-plot_signals(
-    original_signal=result["original_signal"],
-    fiber_signal=result["desired_signal"],
-    crosstalk_signal=(
-        result["desired_signal"]
-        + result["interference_signal"]
-    ),
-    noisy_signal=result["received_signal"],
-    number_of_samples=200,
-)
+    print()
+    print("Opening signal visualization...")
 
+    plot_signals(
+        original_signal=result["original_signal"],
+        fiber_signal=result["desired_signal"],
+        crosstalk_signal=(
+            result["desired_signal"]
+            + result["interference_signal"]
+        ),
+        noisy_signal=result["received_signal"],
+        number_of_samples=200,
+    )
 
+    # ======================================
+    # BER VISUALIZATION
+    # ======================================
 
-# ======================================
-# BER VISUALIZATION
-# ======================================
+    print()
+    print("Opening BER compensation visualization...")
 
-print()
-print("Opening BER compensation visualization...")
-
-plot_compensation(
-    ber_before,
-    ber_after,
-)
+    plot_compensation(
+        ber_before,
+        ber_after,
+    )
