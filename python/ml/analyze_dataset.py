@@ -1,11 +1,14 @@
 import csv
 import numpy as np
+from pathlib import Path
 
 # ==========================================
 # DATASET FILE
 # ==========================================
 
-filename = "wdm_dataset.csv"
+BASE_DIR = Path(__file__).resolve().parent
+
+filename = BASE_DIR / "wdm_dataset.csv"
 
 
 # ==========================================

@@ -1,9 +1,34 @@
 import csv
 import random
+import sys
+from pathlib import Path
 
-from simulation import WDMSimulator
+# ==========================================
+# ADD PYTHON ROOT DIRECTORY TO PATH
+# ==========================================
+
+BASE_DIR = Path(__file__).resolve().parent.parent
+
+if str(BASE_DIR) not in sys.path:
+    sys.path.insert(0, str(BASE_DIR))
+
+
+# ==========================================
+# IMPORT SIMULATOR
+# ==========================================
+
+from simulation.simulation import WDMSimulator
+
+# ==========================================
+# SETTINGS
+# ==========================================
 
 SAMPLES_PER_CLASS = 1000
+
+
+# ==========================================
+# GENERATE ONE EXPERIMENT
+# ==========================================
 
 
 def generate_experiment(coupling_min, coupling_max):
@@ -30,6 +55,11 @@ def generate_experiment(coupling_min, coupling_max):
     return result
 
 
+# ==========================================
+# GENERATE DATASET
+# ==========================================
+
+
 def generate_dataset():
 
     rows = []
@@ -37,6 +67,8 @@ def generate_dataset():
     # ======================================
     # NORMAL
     # ======================================
+
+    print("Generating NORMAL samples...")
 
     for i in range(SAMPLES_PER_CLASS):
 
@@ -60,6 +92,8 @@ def generate_dataset():
     # WARNING
     # ======================================
 
+    print("Generating WARNING samples...")
+
     for i in range(SAMPLES_PER_CLASS):
 
         result = generate_experiment(0.005, 0.02)
@@ -82,6 +116,8 @@ def generate_dataset():
     # CRITICAL
     # ======================================
 
+    print("Generating CRITICAL samples...")
+
     for i in range(SAMPLES_PER_CLASS):
 
         result = generate_experiment(0.02, 0.05)
@@ -100,15 +136,19 @@ def generate_dataset():
             ]
         )
 
-    # Shuffle dataset
+    # ======================================
+    # SHUFFLE DATASET
+    # ======================================
 
     random.shuffle(rows)
 
     # ======================================
-    # SAVE CSV
+    # SAVE DATASET
     # ======================================
 
-    with open("wdm_dataset.csv", "w", newline="") as file:
+    dataset_path = Path(__file__).resolve().parent / "wdm_dataset.csv"
+
+    with open(dataset_path, "w", newline="") as file:
 
         writer = csv.writer(file)
 
@@ -128,18 +168,30 @@ def generate_dataset():
 
         writer.writerows(rows)
 
-    print()
+    # ======================================
+    # RESULT
+    # ======================================
 
-    print("Dataset generated successfully!")
+    print()
+    print("======================================")
+    print("       DATASET GENERATED")
+    print("======================================")
 
     print("Total samples:", len(rows))
-
     print("NORMAL:", SAMPLES_PER_CLASS)
-
     print("WARNING:", SAMPLES_PER_CLASS)
-
     print("CRITICAL:", SAMPLES_PER_CLASS)
 
+    print()
+    print("Dataset saved to:")
+    print(dataset_path)
+
+    print("======================================")
+
+
+# ==========================================
+# MAIN
+# ==========================================
 
 if __name__ == "__main__":
 

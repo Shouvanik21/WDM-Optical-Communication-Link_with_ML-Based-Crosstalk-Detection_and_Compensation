@@ -1,18 +1,32 @@
+# This file creates an optical WDM system, runs the simulation,
+# gives the resulting measurements to the trained ML model,
+# determines the crosstalk severity, and performs compensation.
+
 import os
 import joblib
+from pathlib import Path
 
-from simulation import WDMSimulator
-from metrics import calculate_ber_improvement
-from visualization import plot_compensation
+from simulation.simulation import WDMSimulator
+from simulation.metrics import calculate_ber_improvement
+from visualization.visualization import (
+    plot_signals,
+    plot_compensation,
+)
 
-MODEL_FILE = "wdm_crosstalk_model.pkl"
+# ======================================
+# PROJECT PATHS
+# ======================================
+
+BASE_DIR = Path(__file__).resolve().parent
+
+MODEL_FILE = BASE_DIR / "ml" / "wdm_crosstalk_model.pkl"
 
 
 # ======================================
 # LOAD MODEL
 # ======================================
 
-if not os.path.exists(MODEL_FILE):
+if not MODEL_FILE.exists():
 
     print()
 
@@ -33,13 +47,9 @@ model = joblib.load(MODEL_FILE)
 print()
 
 print("==========================================")
-
 print("   INTELLIGENT WDM OPTICAL LINK")
-
 print(" ML-BASED CROSSTALK DETECTION")
-
 print("       AND COMPENSATION")
-
 print("==========================================")
 
 
@@ -49,13 +59,13 @@ print("==========================================")
 
 simulator = WDMSimulator(
     number_of_channels=4,
-    number_of_bits=100,
+    number_of_bits=1000,
     samples_per_bit=20,
     fiber_length=50,
     attenuation=0.2,
     dispersion=17,
-    coupling=0.01,
-    noise_level=0.000005,
+    coupling=0.20,
+    noise_level=0.00002,
 )
 
 
@@ -81,26 +91,19 @@ print()
 
 print("========== OPTICAL LINK RESULTS ==========")
 
+print(f"Fiber Loss      : {result['fiber_loss_db']:.4f} dB")
 
-print(f"Fiber Loss      : " f"{result['fiber_loss_db']:.4f} dB")
+print(f"Dispersion      : {result['dispersion_ps']:.4f} ps")
 
+print(f"SNR             : {result['snr_db']:.4f} dB")
 
-print(f"Dispersion      : " f"{result['dispersion_ps']:.4f} ps")
+print(f"Received Power  : {result['received_power']:.10f}")
 
+print(f"Noise Level     : {result['noise_level']:.10f}")
 
-print(f"SNR             : " f"{result['snr_db']:.4f} dB")
+print(f"Crosstalk       : {result['crosstalk_db']:.4f} dB")
 
-
-print(f"Received Power  : " f"{result['received_power']:.10f}")
-
-
-print(f"Noise Level     : " f"{result['noise_level']:.10f}")
-
-
-print(f"Crosstalk       : " f"{result['crosstalk_db']:.4f} dB")
-
-
-print(f"BER             : " f"{result['ber']:.6f}")
+print(f"BER             : {result['ber']:.6f}")
 
 
 # ======================================
@@ -127,12 +130,9 @@ features = [
 
 prediction = model.predict(features)[0]
 
-
 probabilities = model.predict_proba(features)[0]
 
-
 severity_names = {0: "NORMAL", 1: "WARNING", 2: "CRITICAL"}
-
 
 severity = severity_names[int(prediction)]
 
@@ -145,14 +145,11 @@ print()
 
 print("========== ML DETECTION ==========")
 
-
 print("Predicted Severity:", severity)
-
 
 print()
 
 print("Prediction Confidence:")
-
 
 for index, probability in enumerate(probabilities):
 
@@ -165,9 +162,7 @@ for index, probability in enumerate(probabilities):
 
 ber_before = result["ber"]
 
-
 ber_after = result["compensated_ber"]
-
 
 improvement = calculate_ber_improvement(ber_before, ber_after)
 
@@ -176,17 +171,13 @@ print()
 
 print("========== CROSSTALK COMPENSATION ==========")
 
+print(f"Severity Detected : {severity}")
 
-print(f"Severity Detected : " f"{severity}")
+print(f"BER Before        : {ber_before:.6f}")
 
+print(f"BER After         : {ber_after:.6f}")
 
-print(f"BER Before        : " f"{ber_before:.6f}")
-
-
-print(f"BER After         : " f"{ber_after:.6f}")
-
-
-print(f"BER Improvement   : " f"{improvement:.2f}%")
+print(f"BER Improvement   : {improvement:.2f}%")
 
 
 # ======================================
@@ -196,9 +187,7 @@ print(f"BER Improvement   : " f"{improvement:.2f}%")
 print()
 
 print("==========================================")
-
 print("             SYSTEM STATUS")
-
 print("==========================================")
 
 
@@ -206,11 +195,9 @@ if severity == "NORMAL":
 
     print("Optical link operating normally.")
 
-
 elif severity == "WARNING":
 
     print("Moderate crosstalk detected.")
-
 
 else:
 
@@ -219,15 +206,39 @@ else:
 
 print("ML detection completed.")
 
-
 print("Crosstalk compensation completed.")
 
-
 print("==========================================")
+
+
+# ======================================
+# VISUALIZATION
+# ======================================
+
+print()
+print("Opening signal visualization...")
+
+plot_signals(
+    original_signal=result["original_signal"],
+    fiber_signal=result["desired_signal"],
+    crosstalk_signal=(
+        result["desired_signal"]
+        + result["interference_signal"]
+    ),
+    noisy_signal=result["received_signal"],
+    number_of_samples=200,
+)
+
 
 
 # ======================================
 # BER VISUALIZATION
 # ======================================
 
-plot_compensation(ber_before, ber_after)
+print()
+print("Opening BER compensation visualization...")
+
+plot_compensation(
+    ber_before,
+    ber_after,
+)

@@ -1,0 +1,90 @@
+# ==========================================
+# PYTHON
+# ==========================================
+
+__pycache__/
+*.py[cod]
+*$py.class
+
+*.pyo
+*.pyd
+
+# Virtual environments
+venv/
+env/
+.venv/
+ENV/
+
+# Python packaging
+*.egg-info/
+dist/
+build/
+
+# ==========================================
+# JUPYTER / NOTEBOOKS
+# ==========================================
+
+.ipynb_checkpoints/
+
+
+# ==========================================
+# IDE / EDITOR
+# ==========================================
+
+.vscode/
+.idea/
+
+# ==========================================
+# OPERATING SYSTEM
+# ==========================================
+
+.DS_Store
+Thumbs.db
+
+# ==========================================
+# PYTHON GENERATED FILES
+# ==========================================
+
+*.log
+
+# ==========================================
+# MACHINE LEARNING GENERATED FILES
+# ==========================================
+
+# Ignore trained model
+python/ml/*.pkl
+
+# Ignore generated dataset
+python/ml/*.csv
+
+# ==========================================
+# GENERATED VISUALIZATION / OUTPUT FILES
+# ==========================================
+
+*.png
+*.jpg
+*.jpeg
+
+# ==========================================
+# NODE / MERN
+# ==========================================
+
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# Build outputs
+dist/
+build/
+
+# ==========================================
+# WINDOWS
+# ==========================================
+
+*.lnk

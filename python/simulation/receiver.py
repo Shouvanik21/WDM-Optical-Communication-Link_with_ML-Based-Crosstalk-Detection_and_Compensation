@@ -6,7 +6,6 @@ class OpticalReceiver:
     def __init__(self, responsivity=0.8, sensitivity_dbm=-18):
 
         self.responsivity = responsivity
-
         self.sensitivity_dbm = sensitivity_dbm
 
     # ======================================
@@ -15,7 +14,7 @@ class OpticalReceiver:
 
     def detect_signal(self, optical_signal):
 
-        electrical_signal = optical_signal * self.responsivity
+        electrical_signal = np.asarray(optical_signal) * self.responsivity
 
         return electrical_signal
 
@@ -26,17 +25,20 @@ class OpticalReceiver:
 
     def make_decision(self, electrical_signal, threshold=None):
 
-        # If no threshold is provided,
-        # calculate it automatically.
+        electrical_signal = np.asarray(electrical_signal)
+
+        # Use a fixed threshold when one is
+        # provided.
+        #
+        # This is important because a real
+        # receiver cannot simply move its
+        # threshold to match every corrupted
+        # signal.
 
         if threshold is None:
 
             minimum = np.min(electrical_signal)
-
             maximum = np.max(electrical_signal)
-
-            # Midpoint between the lowest
-            # and highest signal levels
 
             threshold = (minimum + maximum) / 2.0
 
@@ -51,7 +53,6 @@ class OpticalReceiver:
     def calculate_threshold(self, electrical_signal):
 
         minimum = np.min(electrical_signal)
-
         maximum = np.max(electrical_signal)
 
         threshold = (minimum + maximum) / 2.0
@@ -68,7 +69,7 @@ class OpticalReceiver:
 
         power_watt = power_mw / 1000
 
-        return power_watt
+        return float(power_watt)
 
     # ======================================
     # Convert Watts to dBm

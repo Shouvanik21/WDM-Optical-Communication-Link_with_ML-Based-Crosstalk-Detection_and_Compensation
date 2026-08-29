@@ -1,9 +1,17 @@
 import csv
 import joblib
+from pathlib import Path
 
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
+
+
+BASE_DIR = Path(__file__).resolve().parent
+
+DATASET_FILE = BASE_DIR / "wdm_dataset.csv"
+
+MODEL_FILE = BASE_DIR / "wdm_crosstalk_model.pkl"
 
 # ======================================
 # LOAD DATASET
@@ -13,7 +21,7 @@ X = []
 y = []
 
 
-with open("wdm_dataset.csv", "r") as file:
+with open(DATASET_FILE, "r") as file:
 
     reader = csv.DictReader(file)
 
@@ -143,9 +151,9 @@ for name, importance in zip(feature_names, model.feature_importances_):
 # SAVE MODEL
 # ======================================
 
-joblib.dump(model, "wdm_crosstalk_model.pkl")
+joblib.dump(model, MODEL_FILE)
 
 
 print()
 
-print("Model saved as " "wdm_crosstalk_model.pkl")
+print(f"Model saved as {MODEL_FILE}")
