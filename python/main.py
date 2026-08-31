@@ -5,6 +5,7 @@
 import os
 import joblib
 import sys
+import random
 from pathlib import Path
 
 from simulation.simulation import WDMSimulator
@@ -55,7 +56,28 @@ print("==========================================")
 
 
 # ======================================
-# SIMULATOR
+# SELECT SIMULATION CONDITION
+# ======================================
+
+conditions = [
+    ("NORMAL", 0.0001, 0.0049),
+    ("WARNING", 0.0051, 0.0199),
+    ("CRITICAL", 0.0201, 0.05),
+]
+
+condition_name, coupling_min, coupling_max = random.choice(conditions)
+
+coupling = random.uniform(coupling_min, coupling_max)
+
+
+print()
+print("========== SIMULATION CONDITION ==========")
+print("Expected Condition:", condition_name)
+print(f"Coupling: {coupling:.6f}")
+
+
+# ======================================
+# CREATE SIMULATOR
 # ======================================
 
 simulator = WDMSimulator(
@@ -65,7 +87,7 @@ simulator = WDMSimulator(
     fiber_length=50,
     attenuation=0.2,
     dispersion=17,
-    coupling=0.20,
+    coupling=coupling,
     noise_level=0.00002,
 )
 
@@ -224,10 +246,7 @@ if "--visualize" in sys.argv:
     plot_signals(
         original_signal=result["original_signal"],
         fiber_signal=result["desired_signal"],
-        crosstalk_signal=(
-            result["desired_signal"]
-            + result["interference_signal"]
-        ),
+        crosstalk_signal=(result["desired_signal"] + result["interference_signal"]),
         noisy_signal=result["received_signal"],
         number_of_samples=200,
     )

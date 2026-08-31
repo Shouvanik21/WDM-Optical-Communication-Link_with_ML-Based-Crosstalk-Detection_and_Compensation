@@ -37,6 +37,11 @@ const simulationSchema = new mongoose.Schema(
       required: true,
     },
 
+    bitErrors: {
+      type: Number,
+      required: true,
+    },
+
     berAfter: {
       type: Number,
       required: true,
