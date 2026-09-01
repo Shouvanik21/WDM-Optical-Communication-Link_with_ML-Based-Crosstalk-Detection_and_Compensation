@@ -54,9 +54,7 @@ const parsePythonOutput = (output) => {
   const crosstalkMatch = output.match(/Crosstalk\s*:\s*([-+]?\d*\.?\d+)/);
 
   const berMatch = output.match(/BER\s*:\s*([-+]?\d*\.?\d+)/);
-  const bitErrorsMatch = output.match(
-  /Bit Errors\s*:\s*([-+]?\d+)/
-);
+  const bitErrorsMatch = output.match(/Bit Errors\s*:\s*([-+]?\d+)/);
 
   const severityMatch = output.match(
     /Predicted Severity:\s*(NORMAL|WARNING|CRITICAL)/,
@@ -101,7 +99,7 @@ const parsePythonOutput = (output) => {
 
     berBefore: Number(berBeforeMatch[1]),
 
-bitErrors: Math.round(Number(berBeforeMatch[1]) * 1000),
+    bitErrors: bitErrorsMatch ? Number(bitErrorsMatch[1]) : 0,
 
     berAfter: Number(berAfterMatch[1]),
 

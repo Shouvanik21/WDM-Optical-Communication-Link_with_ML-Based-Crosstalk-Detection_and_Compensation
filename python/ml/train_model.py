@@ -1,159 +1,286 @@
-import csv
 import joblib
+import pandas as pd
+
 from pathlib import Path
 
-from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import (
+    accuracy_score,
+    classification_report,
+    confusion_matrix,
+)
+
+# ==========================================
+# PATHS
+# ==========================================
+
+BASE_DIR = Path(__file__).resolve().parents[1]
+
+DATASET_FILE = BASE_DIR / "ml" / "wdm_dataset.csv"
+
+MODEL_FILE = BASE_DIR / "ml" / "wdm_crosstalk_model.pkl"
 
 
-BASE_DIR = Path(__file__).resolve().parent
+# ==========================================
+# FEATURES
+# ==========================================
 
-DATASET_FILE = BASE_DIR / "wdm_dataset.csv"
+FEATURES = [
+    "snr_db",
+    "received_power",
+    "noise_level",
+    "fiber_loss_db",
+    "dispersion_ps",
+    "average_crosstalk",
+    "crosstalk_db",
+    "ber",
+]
 
-MODEL_FILE = BASE_DIR / "wdm_crosstalk_model.pkl"
+TARGET = "severity"
 
-# ======================================
+
+# ==========================================
 # LOAD DATASET
-# ======================================
+# ==========================================
 
-X = []
-y = []
-
-
-with open(DATASET_FILE, "r") as file:
-
-    reader = csv.DictReader(file)
-
-    for row in reader:
-
-        features = [
-            float(row["snr"]),
-            float(row["received_power"]),
-            float(row["noise"]),
-            float(row["fiber_loss"]),
-            float(row["dispersion"]),
-            float(row["average_crosstalk"]),
-            float(row["crosstalk_db"]),
-            float(row["ber"]),
-        ]
-
-        label = int(row["label"])
-
-        X.append(features)
-
-        y.append(label)
+print()
+print("==========================================")
+print("          TRAINING WDM ML MODEL")
+print("==========================================")
 
 
-# ======================================
-# TRAIN / TEST SPLIT
-# ======================================
+if not DATASET_FILE.exists():
 
-X_train, X_test, y_train, y_test = train_test_split(
-    X, y, test_size=0.20, random_state=42, stratify=y
+    print()
+    print("ERROR: Dataset not found.")
+    print()
+    print("Generate the dataset first:")
+    print("python -m ml.dataset_generator")
+
+    raise SystemExit
+
+
+df = pd.read_csv(DATASET_FILE)
+
+
+# ==========================================
+# BASIC VALIDATION
+# ==========================================
+
+required_columns = FEATURES + [
+    "severity",
+    "label",
+]
+
+
+missing_columns = [column for column in required_columns if column not in df.columns]
+
+
+if missing_columns:
+
+    print()
+    print("ERROR: Missing columns:")
+
+    for column in missing_columns:
+        print(f" - {column}")
+
+    raise SystemExit
+
+
+print()
+print(
+    "Dataset shape:",
+    df.shape,
 )
 
 
-# ======================================
+# ==========================================
+# CLASS DISTRIBUTION
+# ==========================================
+
+print()
+print("Class distribution:")
+
+class_names = {
+    0: "NORMAL",
+    1: "WARNING",
+    2: "CRITICAL",
+}
+
+
+for class_id, class_name in class_names.items():
+
+    count = int((df["severity"] == class_id).sum())
+
+    print(f"{class_name:10s}: {count}")
+
+
+# ==========================================
+# INPUT / OUTPUT
+# ==========================================
+
+X = df[FEATURES]
+
+y = df[TARGET]
+
+
+# ==========================================
+# TRAIN / TEST SPLIT
+# ==========================================
+
+X_train, X_test, y_train, y_test = train_test_split(
+    X,
+    y,
+    test_size=0.20,
+    random_state=42,
+    stratify=y,
+)
+
+
+# ==========================================
 # RANDOM FOREST
-# ======================================
+# ==========================================
 
 model = RandomForestClassifier(
-    n_estimators=300,
-    max_depth=None,
-    min_samples_split=2,
-    min_samples_leaf=1,
-    random_state=42,
+    n_estimators=400,
+    max_depth=14,
+    min_samples_split=4,
+    min_samples_leaf=2,
     class_weight="balanced",
+    random_state=42,
     n_jobs=-1,
 )
 
 
-# ======================================
+# ==========================================
 # TRAIN
-# ======================================
+# ==========================================
 
-model.fit(X_train, y_train)
+print()
+print("Training model...")
+
+model.fit(
+    X_train,
+    y_train,
+)
 
 
-# ======================================
-# PREDICTION
-# ======================================
+# ==========================================
+# TEST
+# ==========================================
 
 predictions = model.predict(X_test)
 
 
-# ======================================
-# EVALUATION
-# ======================================
+accuracy = accuracy_score(
+    y_test,
+    predictions,
+)
 
-accuracy = accuracy_score(y_test, predictions)
+
+# ==========================================
+# RESULTS
+# ==========================================
+
+print()
+print("==========================================")
+print("             MODEL RESULTS")
+print("==========================================")
+
+
+print(f"Accuracy: {accuracy * 100:.2f}%")
 
 
 print()
-
-print("========== MODEL RESULTS ==========")
-
-
-print(f"Accuracy: {accuracy:.4f}")
-
-
-print()
-
-print("Classification Report:")
-
 
 print(
     classification_report(
         y_test,
         predictions,
-        target_names=["NORMAL", "WARNING", "CRITICAL"],
+        labels=[
+            0,
+            1,
+            2,
+        ],
+        target_names=[
+            "NORMAL",
+            "WARNING",
+            "CRITICAL",
+        ],
         zero_division=0,
     )
 )
 
 
-print()
+# ==========================================
+# CONFUSION MATRIX
+# ==========================================
 
 print("Confusion Matrix:")
 
+matrix = confusion_matrix(
+    y_test,
+    predictions,
+    labels=[
+        0,
+        1,
+        2,
+    ],
+)
 
-print(confusion_matrix(y_test, predictions))
+
+print(matrix)
 
 
-# ======================================
+# ==========================================
 # FEATURE IMPORTANCE
-# ======================================
-
-feature_names = [
-    "SNR",
-    "Received Power",
-    "Noise",
-    "Fiber Loss",
-    "Dispersion",
-    "Average Crosstalk",
-    "Crosstalk dB",
-    "BER",
-]
-
+# ==========================================
 
 print()
-
-print("========== FEATURE IMPORTANCE ==========")
-
-
-for name, importance in zip(feature_names, model.feature_importances_):
-
-    print(f"{name:20s}: " f"{importance:.4f}")
+print("Feature Importance:")
+print("------------------------------------------")
 
 
-# ======================================
+importance = pd.DataFrame(
+    {
+        "feature": FEATURES,
+        "importance": model.feature_importances_,
+    }
+)
+
+
+importance = importance.sort_values(
+    by="importance",
+    ascending=False,
+)
+
+
+for _, row in importance.iterrows():
+
+    print(f"{row['feature']:20s} " f"{row['importance']:.4f}")
+
+
+# ==========================================
 # SAVE MODEL
-# ======================================
+# ==========================================
 
-joblib.dump(model, MODEL_FILE)
+joblib.dump(
+    model,
+    MODEL_FILE,
+)
 
 
 print()
+print("==========================================")
+print("           MODEL SAVED")
+print("==========================================")
 
-print(f"Model saved as {MODEL_FILE}")
+print()
+print(
+    "Model:",
+    MODEL_FILE,
+)
+
+print()
+print("Training completed.")

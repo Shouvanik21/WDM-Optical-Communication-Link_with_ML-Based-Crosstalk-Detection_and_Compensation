@@ -1,50 +1,56 @@
-# This file creates an optical WDM system, runs the simulation,
-# gives the resulting measurements to the trained ML model,
-# determines the crosstalk severity, and performs compensation.
+# ==========================================
+# INTELLIGENT WDM OPTICAL COMMUNICATION
+# ML-BASED CROSSTALK DETECTION
+# AND COMPENSATION
+# ==========================================
 
-import os
-import joblib
 import sys
 import random
+import joblib
+import pandas as pd
+
 from pathlib import Path
 
 from simulation.simulation import WDMSimulator
 from simulation.metrics import calculate_ber_improvement
+
 from visualization.visualization import (
     plot_signals,
     plot_compensation,
 )
 
-# ======================================
-# PROJECT PATHS
-# ======================================
+# ==========================================
+# PROJECT PATH
+# ==========================================
 
 BASE_DIR = Path(__file__).resolve().parent
 
 MODEL_FILE = BASE_DIR / "ml" / "wdm_crosstalk_model.pkl"
 
 
-# ======================================
-# LOAD MODEL
-# ======================================
+# ==========================================
+# CHECK MODEL
+# ==========================================
 
 if not MODEL_FILE.exists():
 
     print()
-
     print("ERROR: Model not found.")
-
-    print("Run train_model.py first.")
+    print("Run the model training script first.")
 
     raise SystemExit
 
 
+# ==========================================
+# LOAD ML MODEL
+# ==========================================
+
 model = joblib.load(MODEL_FILE)
 
 
-# ======================================
+# ==========================================
 # HEADER
-# ======================================
+# ==========================================
 
 print()
 
@@ -55,30 +61,35 @@ print("       AND COMPENSATION")
 print("==========================================")
 
 
-# ======================================
-# SELECT SIMULATION CONDITION
-# ======================================
+# ==========================================
+# RANDOM SIMULATION CONDITION
+# ==========================================
+#
+# Instead of selecting NORMAL/WARNING/CRITICAL
+# beforehand, we randomly select the physical
+# coupling coefficient.
+#
+# The resulting SNR, crosstalk and BER determine
+# the actual severity.
+#
+# ==========================================
 
-conditions = [
-    ("NORMAL", 0.0001, 0.0049),
-    ("WARNING", 0.0051, 0.0199),
-    ("CRITICAL", 0.0201, 0.05),
-]
-
-condition_name, coupling_min, coupling_max = random.choice(conditions)
-
-coupling = random.uniform(coupling_min, coupling_max)
+coupling = random.uniform(
+    0.001,
+    0.30,
+)
 
 
 print()
-print("========== SIMULATION CONDITION ==========")
-print("Expected Condition:", condition_name)
-print(f"Coupling: {coupling:.6f}")
+
+print("========== SIMULATION PARAMETERS ==========")
+
+print(f"Coupling          : {coupling:.6f}")
 
 
-# ======================================
+# ==========================================
 # CREATE SIMULATOR
-# ======================================
+# ==========================================
 
 simulator = WDMSimulator(
     number_of_channels=4,
@@ -92,83 +103,111 @@ simulator = WDMSimulator(
 )
 
 
-# ======================================
+# ==========================================
 # RUN SIMULATION
-# ======================================
+# ==========================================
 
 result = simulator.run()
 
 
-# ======================================
-# DISPLAY CHANNELS
-# ======================================
+# ==========================================
+# DISPLAY WDM CHANNELS
+# ==========================================
 
 simulator.wdm.display_channels()
 
 
-# ======================================
-# DISPLAY LINK RESULTS
-# ======================================
+# ==========================================
+# DISPLAY RESULTS
+# ==========================================
 
 print()
 
 print("========== OPTICAL LINK RESULTS ==========")
 
-print(f"Fiber Loss      : {result['fiber_loss_db']:.4f} dB")
+print(f"Fiber Loss       : " f"{result['fiber_loss_db']:.4f} dB")
 
-print(f"Dispersion      : {result['dispersion_ps']:.4f} ps")
+print(f"Dispersion       : " f"{result['dispersion_ps']:.4f} ps")
 
-print(f"SNR             : {result['snr_db']:.4f} dB")
+print(f"SNR              : " f"{result['snr_db']:.4f} dB")
 
-print(f"Received Power  : {result['received_power']:.10f}")
+print(f"Received Power   : " f"{result['received_power']:.10f}")
 
-print(f"Noise Level     : {result['noise_level']:.10f}")
+print(f"Noise Level      : " f"{result['noise_level']:.10f}")
 
-print(f"Crosstalk       : {result['crosstalk_db']:.4f} dB")
+print(f"Crosstalk        : " f"{result['crosstalk_db']:.4f} dB")
 
-print(f"BER             : {result['ber']:.6f}")
+print(f"Average Crosstalk: " f"{result['average_crosstalk']:.10f}")
+
+print(f"BER              : " f"{result['ber']:.6f}")
+
+print(f"Bit Errors       : " f"{result['bit_errors']}")
 
 
-# ======================================
-# ML FEATURES
-# ======================================
+# ==========================================
+# PREPARE ML FEATURES
+# ==========================================
+#
+# IMPORTANT:
+#
+# The model was trained using these exact
+# feature names.
+#
+# Using a DataFrame prevents the sklearn
+# "X does not have valid feature names"
+# warning.
+#
+# ==========================================
 
-features = [
+features = pd.DataFrame(
     [
-        result["snr_db"],
-        result["received_power"],
-        result["noise_level"],
-        result["fiber_loss_db"],
-        result["dispersion_ps"],
-        result["average_crosstalk"],
-        result["crosstalk_db"],
-        result["ber"],
+        {
+            "snr_db": result["snr_db"],
+            "received_power": result["received_power"],
+            "noise_level": result["noise_level"],
+            "fiber_loss_db": result["fiber_loss_db"],
+            "dispersion_ps": result["dispersion_ps"],
+            "average_crosstalk": result["average_crosstalk"],
+            "crosstalk_db": result["crosstalk_db"],
+            "ber": result["ber"],
+        }
     ]
-]
+)
 
 
-# ======================================
+# ==========================================
 # ML PREDICTION
-# ======================================
+# ==========================================
 
 prediction = model.predict(features)[0]
 
+
 probabilities = model.predict_proba(features)[0]
 
-severity_names = {0: "NORMAL", 1: "WARNING", 2: "CRITICAL"}
+
+# ==========================================
+# SEVERITY NAMES
+# ==========================================
+
+severity_names = {
+    0: "NORMAL",
+    1: "WARNING",
+    2: "CRITICAL",
+}
+
 
 severity = severity_names[int(prediction)]
 
 
-# ======================================
-# ML RESULT
-# ======================================
+# ==========================================
+# ML DETECTION OUTPUT
+# ==========================================
 
 print()
 
 print("========== ML DETECTION ==========")
 
-print("Predicted Severity:", severity)
+print(f"Predicted Severity: {severity}")
 
 print()
 
@@ -179,16 +218,24 @@ for index, probability in enumerate(probabilities):
     print(f"{severity_names[index]:10s}: " f"{probability * 100:.2f}%")
 
 
-# ======================================
-# COMPENSATION
-# ======================================
+# ==========================================
+# BER COMPENSATION
+# ==========================================
 
 ber_before = result["ber"]
 
 ber_after = result["compensated_ber"]
 
-improvement = calculate_ber_improvement(ber_before, ber_after)
 
+improvement = calculate_ber_improvement(
+    ber_before,
+    ber_after,
+)
+
+
+# ==========================================
+# COMPENSATION OUTPUT
+# ==========================================
 
 print()
 
@@ -203,9 +250,9 @@ print(f"BER After         : {ber_after:.6f}")
 print(f"BER Improvement   : {improvement:.2f}%")
 
 
-# ======================================
-# FINAL STATUS
-# ======================================
+# ==========================================
+# SYSTEM STATUS
+# ==========================================
 
 print()
 
@@ -234,9 +281,9 @@ print("Crosstalk compensation completed.")
 print("==========================================")
 
 
-# ======================================
-# VISUALIZATION
-# ======================================
+# ==========================================
+# OPTIONAL VISUALIZATION
+# ==========================================
 
 if "--visualize" in sys.argv:
 
@@ -251,11 +298,8 @@ if "--visualize" in sys.argv:
         number_of_samples=200,
     )
 
-    # ======================================
-    # BER VISUALIZATION
-    # ======================================
-
     print()
+
     print("Opening BER compensation visualization...")
 
     plot_compensation(
