@@ -45,17 +45,24 @@ TARGET = "severity"
 # ==========================================
 
 print()
+
 print("==========================================")
+
 print("          TRAINING WDM ML MODEL")
+
 print("==========================================")
 
 
 if not DATASET_FILE.exists():
 
     print()
+
     print("ERROR: Dataset not found.")
+
     print()
+
     print("Generate the dataset first:")
+
     print("python -m ml.dataset_generator")
 
     raise SystemExit
@@ -80,15 +87,18 @@ missing_columns = [column for column in required_columns if column not in df.col
 if missing_columns:
 
     print()
+
     print("ERROR: Missing columns:")
 
     for column in missing_columns:
+
         print(f" - {column}")
 
     raise SystemExit
 
 
 print()
+
 print(
     "Dataset shape:",
     df.shape,
@@ -100,7 +110,9 @@ print(
 # ==========================================
 
 print()
+
 print("Class distribution:")
+
 
 class_names = {
     0: "NORMAL",
@@ -114,6 +126,26 @@ for class_id, class_name in class_names.items():
     count = int((df["severity"] == class_id).sum())
 
     print(f"{class_name:10s}: {count}")
+
+
+# ==========================================
+# FEATURE SUMMARY
+# ==========================================
+
+print()
+
+print("Feature ranges:")
+
+print("------------------------------------------")
+
+
+for feature in FEATURES:
+
+    minimum = df[feature].min()
+
+    maximum = df[feature].max()
+
+    print(f"{feature:20s} " f"{minimum:.8g} -> " f"{maximum:.8g}")
 
 
 # ==========================================
@@ -158,7 +190,9 @@ model = RandomForestClassifier(
 # ==========================================
 
 print()
+
 print("Training model...")
+
 
 model.fit(
     X_train,
@@ -184,12 +218,15 @@ accuracy = accuracy_score(
 # ==========================================
 
 print()
+
 print("==========================================")
+
 print("             MODEL RESULTS")
+
 print("==========================================")
 
 
-print(f"Accuracy: {accuracy * 100:.2f}%")
+print(f"Accuracy: " f"{accuracy * 100:.2f}%")
 
 
 print()
@@ -219,6 +256,7 @@ print(
 
 print("Confusion Matrix:")
 
+
 matrix = confusion_matrix(
     y_test,
     predictions,
@@ -238,7 +276,9 @@ print(matrix)
 # ==========================================
 
 print()
+
 print("Feature Importance:")
+
 print("------------------------------------------")
 
 
@@ -272,15 +312,20 @@ joblib.dump(
 
 
 print()
+
 print("==========================================")
+
 print("           MODEL SAVED")
+
 print("==========================================")
 
 print()
+
 print(
     "Model:",
     MODEL_FILE,
 )
 
 print()
+
 print("Training completed.")

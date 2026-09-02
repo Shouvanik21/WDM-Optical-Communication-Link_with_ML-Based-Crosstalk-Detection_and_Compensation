@@ -31,10 +31,14 @@ const MLDetection = ({ severity, probabilities, confidence }) => {
 
   const Icon = config.icon;
 
-  const values = probabilities || {
-    NORMAL: severity === "NORMAL" ? 1 : 0,
-    WARNING: severity === "WARNING" ? 1 : 0,
-    CRITICAL: severity === "CRITICAL" ? 1 : 0,
+  // ==========================================
+  // ML probabilities
+  // ==========================================
+
+  const values = {
+    NORMAL: Number(probabilities?.NORMAL ?? 0),
+    WARNING: Number(probabilities?.WARNING ?? 0),
+    CRITICAL: Number(probabilities?.CRITICAL ?? 0),
   };
 
   return (
@@ -58,6 +62,10 @@ const MLDetection = ({ severity, probabilities, confidence }) => {
       </div>
 
       <div className="p-6">
+        {/* ================================== */}
+        {/* Prediction */}
+        {/* ================================== */}
+
         <div
           className={`flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 rounded-xl border ${config.bg} ${config.border}`}
         >
@@ -75,21 +83,27 @@ const MLDetection = ({ severity, probabilities, confidence }) => {
             </div>
           </div>
 
-          {confidence !== undefined && (
-            <div className="text-left sm:text-right">
-              <p className="text-xs text-slate-500">Prediction Confidence</p>
+          {/* ================================== */}
+          {/* Prediction Confidence */}
+          {/* ================================== */}
 
-              <p className="text-2xl font-bold text-slate-900 mt-1">
-                {Number(confidence).toFixed(2)}%
-              </p>
-            </div>
-          )}
+          <div className="text-left sm:text-right">
+            <p className="text-xs text-slate-500">Prediction Confidence</p>
+
+            <p className="text-2xl font-bold text-slate-900 mt-1">
+              {Number(confidence ?? 0).toFixed(2)}%
+            </p>
+          </div>
         </div>
 
         <p className="text-sm text-slate-500 mt-4">
           {config.label}. The model evaluates measured optical parameters and
           classifies the link condition.
         </p>
+
+        {/* ================================== */}
+        {/* Prediction Probabilities */}
+        {/* ================================== */}
 
         <div className="mt-6">
           <div className="flex justify-between mb-4">
@@ -102,7 +116,7 @@ const MLDetection = ({ severity, probabilities, confidence }) => {
 
           <div className="space-y-4">
             {["NORMAL", "WARNING", "CRITICAL"].map((name) => {
-              const value = Number(values[name] || 0);
+              const value = values[name];
 
               return (
                 <div key={name}>

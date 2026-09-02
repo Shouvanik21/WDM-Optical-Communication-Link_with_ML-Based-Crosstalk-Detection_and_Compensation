@@ -62,29 +62,82 @@ print("==========================================")
 
 
 # ==========================================
-# RANDOM SIMULATION CONDITION
+# SIMULATION SCENARIOS
 # ==========================================
 #
-# Instead of selecting NORMAL/WARNING/CRITICAL
-# beforehand, we randomly select the physical
-# coupling coefficient.
+# IMPORTANT:
 #
-# The resulting SNR, crosstalk and BER determine
-# the actual severity.
+# These are PHYSICAL operating conditions.
+#
+# They do NOT change the ML model.
+#
+# NORMAL:
+# Very low coupling
+# Very low crosstalk
+#
+# WARNING:
+# Moderate coupling
+# Moderate crosstalk
+#
+# CRITICAL:
+# High coupling
+# Severe crosstalk
 #
 # ==========================================
 
+SCENARIO_COUPLING_RANGES = {
+    "NORMAL": (
+        0.0007,
+        0.0012,
+    ),
+    "WARNING": (
+        0.0120,
+        0.0250,
+    ),
+    "CRITICAL": (
+        0.0800,
+        0.1500,
+    ),
+}
+
+
+# ==========================================
+# SELECT RANDOM SCENARIO
+# ==========================================
+
+scenario_names = [
+    "NORMAL",
+    "WARNING",
+    "CRITICAL",
+]
+
+requested_scenario = random.choice(scenario_names)
+
+
+# ==========================================
+# SELECT COUPLING
+# ==========================================
+
+min_coupling, max_coupling = SCENARIO_COUPLING_RANGES[requested_scenario]
+
 coupling = random.uniform(
-    0.001,
-    0.30,
+    min_coupling,
+    max_coupling,
 )
 
 
-print()
+# ==========================================
+# NOISE LEVEL
+# ==========================================
+#
+# Keep noise controlled.
+#
+# The main degradation mechanism in this
+# project is crosstalk.
+#
+# ==========================================
 
-print("========== SIMULATION PARAMETERS ==========")
-
-print(f"Coupling          : {coupling:.6f}")
+noise_level = 0.00002
 
 
 # ==========================================
@@ -99,15 +152,72 @@ simulator = WDMSimulator(
     attenuation=0.2,
     dispersion=17,
     coupling=coupling,
-    noise_level=0.00002,
+    noise_level=noise_level,
+    scenario=requested_scenario,
 )
 
 
 # ==========================================
-# RUN SIMULATION
+# RUN PHYSICAL SIMULATION
 # ==========================================
 
 result = simulator.run()
+
+
+# ==========================================
+# PREPARE ML FEATURES
+# ==========================================
+
+features = pd.DataFrame(
+    [
+        {
+            "snr_db": result["snr_db"],
+            "received_power": result["received_power"],
+            "noise_level": result["noise_level"],
+            "fiber_loss_db": result["fiber_loss_db"],
+            "dispersion_ps": result["dispersion_ps"],
+            "average_crosstalk": result["average_crosstalk"],
+            "crosstalk_db": result["crosstalk_db"],
+            "ber": result["ber"],
+        }
+    ]
+)
+
+
+# ==========================================
+# ML PREDICTION
+# ==========================================
+
+prediction = model.predict(features)[0]
+
+probabilities = model.predict_proba(features)[0]
+
+
+# ==========================================
+# SEVERITY NAMES
+# ==========================================
+
+severity_names = {
+    0: "NORMAL",
+    1: "WARNING",
+    2: "CRITICAL",
+}
+
+
+severity = severity_names[int(prediction)]
+
+
+# ==========================================
+# DISPLAY CONDITION
+# ==========================================
+
+print()
+
+print("========== SIMULATION CONDITION ==========")
+
+print(f"Generated Condition : " f"{requested_scenario}")
+
+print(f"Coupling            : " f"{simulator.coupling:.6f}")
 
 
 # ==========================================
@@ -137,6 +247,8 @@ print(f"Noise Level      : " f"{result['noise_level']:.10f}")
 
 print(f"Crosstalk        : " f"{result['crosstalk_db']:.4f} dB")
 
+print(f"Physical Crosstalk: " f"{result['physical_crosstalk_db']:.4f} dB")
+
 print(f"Average Crosstalk: " f"{result['average_crosstalk']:.10f}")
 
 print(f"BER              : " f"{result['ber']:.6f}")
@@ -145,69 +257,14 @@ print(f"Bit Errors       : " f"{result['bit_errors']}")
 
 
 # ==========================================
-# PREPARE ML FEATURES
-# ==========================================
-#
-# IMPORTANT:
-#
-# The model was trained using these exact
-# feature names.
-#
-# Using a DataFrame prevents the sklearn
-# "X does not have valid feature names"
-# warning.
-#
-# ==========================================
-
-features = pd.DataFrame(
-    [
-        {
-            "snr_db": result["snr_db"],
-            "received_power": result["received_power"],
-            "noise_level": result["noise_level"],
-            "fiber_loss_db": result["fiber_loss_db"],
-            "dispersion_ps": result["dispersion_ps"],
-            "average_crosstalk": result["average_crosstalk"],
-            "crosstalk_db": result["crosstalk_db"],
-            "ber": result["ber"],
-        }
-    ]
-)
-
-
-# ==========================================
-# ML PREDICTION
-# ==========================================
-
-prediction = model.predict(features)[0]
-
-
-probabilities = model.predict_proba(features)[0]
-
-
-# ==========================================
-# SEVERITY NAMES
-# ==========================================
-
-severity_names = {
-    0: "NORMAL",
-    1: "WARNING",
-    2: "CRITICAL",
-}
-
-
-severity = severity_names[int(prediction)]
-
-
-# ==========================================
-# ML DETECTION OUTPUT
+# ML DETECTION
 # ==========================================
 
 print()
 
 print("========== ML DETECTION ==========")
 
-print(f"Predicted Severity: {severity}")
+print(f"Predicted Severity: " f"{severity}")
 
 print()
 
@@ -219,13 +276,12 @@ for index, probability in enumerate(probabilities):
 
 
 # ==========================================
-# BER COMPENSATION
+# COMPENSATION
 # ==========================================
 
-ber_before = result["ber"]
+ber_before = float(result["ber"])
 
-ber_after = result["compensated_ber"]
-
+ber_after = float(result["compensated_ber"])
 
 improvement = calculate_ber_improvement(
     ber_before,
@@ -241,13 +297,13 @@ print()
 
 print("========== CROSSTALK COMPENSATION ==========")
 
-print(f"Severity Detected : {severity}")
+print(f"Severity Detected : " f"{severity}")
 
-print(f"BER Before        : {ber_before:.6f}")
+print(f"BER Before        : " f"{ber_before:.6f}")
 
-print(f"BER After         : {ber_after:.6f}")
+print(f"BER After         : " f"{ber_after:.6f}")
 
-print(f"BER Improvement   : {improvement:.2f}%")
+print(f"BER Improvement   : " f"{improvement:.2f}%")
 
 
 # ==========================================
@@ -288,6 +344,7 @@ print("==========================================")
 if "--visualize" in sys.argv:
 
     print()
+
     print("Opening signal visualization...")
 
     plot_signals(

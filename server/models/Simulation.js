@@ -58,6 +58,28 @@ const simulationSchema = new mongoose.Schema(
       required: true,
     },
 
+    // ==========================================
+    // ML Prediction Probabilities
+    // ==========================================
+
+    probabilities: {
+      NORMAL: {
+        type: Number,
+        required: true,
+      },
+
+      WARNING: {
+        type: Number,
+        required: true,
+      },
+
+      CRITICAL: {
+        type: Number,
+        required: true,
+      },
+    },
+
+    // Confidence of the predicted class
     confidence: {
       type: Number,
       required: true,

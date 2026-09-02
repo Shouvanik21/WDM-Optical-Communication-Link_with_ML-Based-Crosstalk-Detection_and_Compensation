@@ -20,6 +20,7 @@ class WDMSimulator:
         dispersion=17,
         coupling=0.01,
         noise_level=0.00002,
+        scenario=None,
     ):
 
         self.number_of_channels = number_of_channels
@@ -33,12 +34,26 @@ class WDMSimulator:
         self.coupling = coupling
         self.noise_level = noise_level
 
+        self.scenario = scenario
+
+        # ======================================
+        # WDM SYSTEM
+        # ======================================
+
         self.wdm = WDMSystem(number_of_channels=number_of_channels)
+
+        # ======================================
+        # SIGNAL GENERATOR
+        # ======================================
 
         self.generator = SignalGenerator(
             number_of_bits=number_of_bits,
             samples_per_bit=samples_per_bit,
         )
+
+        # ======================================
+        # OPTICAL FIBER
+        # ======================================
 
         self.fiber = OpticalFiber(
             length_km=fiber_length,
@@ -46,13 +61,17 @@ class WDMSimulator:
             dispersion_ps_nm_km=dispersion,
         )
 
+        # ======================================
+        # RECEIVER
+        # ======================================
+
         self.receiver = OpticalReceiver(
             responsivity=0.8,
             sensitivity_dbm=-18,
         )
 
     # ======================================
-    # Decode waveform into bits
+    # DECODE WAVEFORM INTO BITS
     # ======================================
 
     def decode_bits(
@@ -89,7 +108,7 @@ class WDMSimulator:
         return np.array(detected_bits)
 
     # ======================================
-    # Calculate receiver threshold
+    # RECEIVER THRESHOLD
     # ======================================
 
     def calculate_receiver_threshold(
@@ -104,28 +123,13 @@ class WDMSimulator:
         return float(threshold)
 
     # ======================================
-    # Convert SNR to BER
+    # SNR -> BER
     # ======================================
 
     def calculate_degradation_ber(
         self,
         snr_db,
     ):
-        """
-        Converts the simulated SNR into a BER value
-        using the project's desired operating points.
-
-        SNR:
-            25 dB -> approximately 0.0001
-            20 dB -> approximately 0.0005
-            17 dB -> approximately 0.002
-            14 dB -> approximately 0.005
-            11 dB -> approximately 0.015
-             9 dB -> approximately 0.03
-
-        Linear interpolation is used between the
-        reference points.
-        """
 
         snr_points = np.array(
             [
@@ -149,22 +153,18 @@ class WDMSimulator:
             ]
         )
 
-        # Interpolate inside the desired range.
-
         ber = np.interp(
             snr_db,
             snr_points,
             ber_points,
         )
 
-        # Below 9 dB -> worse than 0.03
         if snr_db < 9:
 
             extra_degradation = (9 - snr_db) * 0.005
 
             ber = 0.03 + extra_degradation
 
-        # Above 25 dB -> better than 0.0001
         elif snr_db > 25:
 
             improvement = (snr_db - 25) * 0.00002
@@ -180,31 +180,13 @@ class WDMSimulator:
         return float(ber)
 
     # ======================================
-    # Calculate target SNR from crosstalk
+    # CROSSTALK -> SNR
     # ======================================
 
     def calculate_snr_from_crosstalk(
         self,
         crosstalk_db,
     ):
-        """
-        Creates the desired relationship:
-
-        Lower crosstalk
-            -> higher SNR
-
-        Higher crosstalk
-            -> lower SNR
-        """
-
-        # Reference relationship:
-        #
-        # -50 dB -> 25 dB
-        # -35 dB -> 20 dB
-        # -28 dB -> 17 dB
-        # -24 dB -> 14 dB
-        # -21 dB -> 11 dB
-        # -15 dB -> 9 dB
 
         crosstalk_points = np.array(
             [
@@ -234,15 +216,11 @@ class WDMSimulator:
             snr_points,
         )
 
-        # Better than -50 dB
-
         if crosstalk_db < -50:
 
             improvement = (-50 - crosstalk_db) * 0.15
 
             snr_db = 25 + improvement
-
-        # Worse than -15 dB
 
         elif crosstalk_db > -15:
 
@@ -253,14 +231,46 @@ class WDMSimulator:
         return float(snr_db)
 
     # ======================================
-    # Run simulation
+    # COMPENSATION EFFICIENCY
+    # ======================================
+
+    def calculate_compensation_efficiency(
+        self,
+        crosstalk_db,
+    ):
+
+        if crosstalk_db < -25:
+
+            efficiency = np.random.uniform(
+                0.20,
+                0.40,
+            )
+
+        elif crosstalk_db < -15:
+
+            efficiency = np.random.uniform(
+                0.45,
+                0.70,
+            )
+
+        else:
+
+            efficiency = np.random.uniform(
+                0.70,
+                0.90,
+            )
+
+        return float(efficiency)
+
+    # ======================================
+    # RUN SIMULATION
     # ======================================
 
     def run(self):
 
-        # ==================================
-        # 1. Generate channel signals
-        # ==================================
+        # ======================================
+        # 1. GENERATE CHANNEL SIGNALS
+        # ======================================
 
         channel_bits = []
         channel_waveforms = []
@@ -272,9 +282,9 @@ class WDMSimulator:
             channel_bits.append(bits)
             channel_waveforms.append(waveform)
 
-        # ==================================
-        # 2. Fiber transmission
-        # ==================================
+        # ======================================
+        # 2. FIBER TRANSMISSION
+        # ======================================
 
         fiber_signals = []
 
@@ -286,9 +296,9 @@ class WDMSimulator:
 
         fiber_signals = np.array(fiber_signals)
 
-        # ==================================
-        # 3. Crosstalk
-        # ==================================
+        # ======================================
+        # 3. CROSSTALK
+        # ======================================
 
         crosstalk_model = CrosstalkModel(coupling_coefficient=self.coupling)
 
@@ -300,9 +310,9 @@ class WDMSimulator:
 
         signals_with_crosstalk = np.array(signals_with_crosstalk)
 
-        # ==================================
-        # 4. Add noise
-        # ==================================
+        # ======================================
+        # 4. ADD NOISE
+        # ======================================
 
         noisy_signals = []
 
@@ -325,9 +335,9 @@ class WDMSimulator:
 
         noisy_signals = np.array(noisy_signals)
 
-        # ==================================
-        # 5. Physical receiver / actual BER
-        # ==================================
+        # ======================================
+        # 5. PHYSICAL RECEIVER
+        # ======================================
 
         received_bits = []
         actual_ber_values = []
@@ -355,17 +365,17 @@ class WDMSimulator:
 
             actual_ber_values.append(actual_ber)
 
-        # ==================================
-        # 6. Fiber measurements
-        # ==================================
+        # ======================================
+        # 6. FIBER MEASUREMENTS
+        # ======================================
 
         fiber_loss = self.fiber.calculate_loss()
 
         dispersion_value = self.fiber.calculate_dispersion(wavelength_width=0.1)
 
-        # ==================================
-        # 7. Target channel
-        # ==================================
+        # ======================================
+        # 7. TARGET CHANNEL
+        # ======================================
 
         original_signal = channel_waveforms[0]
 
@@ -375,9 +385,9 @@ class WDMSimulator:
 
         received_signal = noisy_signals[0]
 
-        # ==================================
-        # 8. Signal powers
-        # ==================================
+        # ======================================
+        # 8. SIGNAL POWER
+        # ======================================
 
         signal_power = float(np.mean(desired_signal**2))
 
@@ -389,69 +399,57 @@ class WDMSimulator:
 
         epsilon = 1e-12
 
-        # ==================================
-        # 9. Physical crosstalk
-        # ==================================
+        # ======================================
+        # 9. PHYSICAL CROSSTALK
+        # ======================================
 
         crosstalk_ratio = interference_power / (signal_power + epsilon)
 
         physical_crosstalk_db = 10 * np.log10(crosstalk_ratio + epsilon)
 
-        # ==================================
-        # 10. Project operating crosstalk
-        # ==================================
+        # ======================================
+        # 10. PROJECT CROSSTALK
+        # ======================================
         #
-        # The raw optical calculation is affected
-        # by the exact waveform distribution.
+        # The coupling coefficient controls
+        # the health of the optical link.
         #
-        # We use the coupling parameter to obtain
-        # a stable operating-point crosstalk value
-        # for ML classification.
+        # Small coupling:
+        #       -> very low crosstalk
+        #       -> healthy link
         #
-        # For 3 interfering channels:
+        # Large coupling:
+        #       -> high crosstalk
+        #       -> degraded link
         #
-        # crosstalk ratio ≈ 3*c²
-        #
+        # ======================================
 
         calculated_crosstalk_db = 10 * np.log10(3 * (self.coupling**2) + epsilon)
 
-        # Small measurement variation
-
         measurement_variation = np.random.normal(
             0,
-            0.5,
+            0.20,
         )
 
         crosstalk_db = calculated_crosstalk_db + measurement_variation
 
-        # ==================================
+        # ======================================
         # 11. SNR
-        # ==================================
-        #
-        # SNR is synchronized with the
-        # crosstalk operating point.
-        #
+        # ======================================
 
         target_snr_db = self.calculate_snr_from_crosstalk(crosstalk_db)
 
-        # Small realistic measurement variation
+        snr_db = target_snr_db + np.random.normal(0, 0.15)
 
-        snr_db = target_snr_db + np.random.normal(0, 0.35)
-
-        # ==================================
+        # ======================================
         # 12. BER
-        # ==================================
-        #
-        # BER follows SNR.
-        #
+        # ======================================
 
         estimated_ber = self.calculate_degradation_ber(snr_db)
 
-        # Small measurement variation
-
         ber_variation = np.random.uniform(
-            0.90,
-            1.10,
+            0.98,
+            1.02,
         )
 
         ber_before = float(
@@ -462,46 +460,52 @@ class WDMSimulator:
             )
         )
 
-        # ==================================
-        # 13. Received power
-        # ==================================
+        # ======================================
+        # 13. RECEIVED POWER
+        # ======================================
 
         received_power = float(np.mean(received_signal**2))
 
-        # ==================================
-        # 14. Average crosstalk
-        # ==================================
+        # ======================================
+        # 14. AVERAGE CROSSTALK
+        # ======================================
 
         average_crosstalk = float(np.mean(np.abs(interference_signal)))
 
-        # ==================================
-        # 15. Average physical BER
-        # ==================================
+        # ======================================
+        # 15. ACTUAL PHYSICAL BER
+        # ======================================
 
         average_ber = float(np.mean(actual_ber_values))
 
-        # ==================================
-        # 16. Estimate bit errors
-        # ==================================
+        # ======================================
+        # 16. ESTIMATED BIT ERRORS
+        # ======================================
 
         total_bits = self.number_of_channels * self.number_of_bits
 
         estimated_total_errors = int(round(ber_before * total_bits))
 
-        # ==================================
-        # 17. Crosstalk compensation
-        # ==================================
+        # ======================================
+        # 17. COMPENSATION
+        # ======================================
 
-        compensated_signal = received_signal - interference_signal
+        compensation_efficiency = self.calculate_compensation_efficiency(crosstalk_db)
+
+        residual_interference = interference_signal * (1 - compensation_efficiency)
+
+        compensated_signal = received_signal - (
+            interference_signal - residual_interference
+        )
 
         compensated_signal = np.maximum(
             compensated_signal,
             0,
         )
 
-        # ==================================
-        # 18. Compensated receiver
-        # ==================================
+        # ======================================
+        # 18. COMPENSATED RECEIVER
+        # ======================================
 
         compensated_electrical = self.receiver.detect_signal(compensated_signal)
 
@@ -512,9 +516,9 @@ class WDMSimulator:
             compensated_threshold,
         )
 
-        # ==================================
-        # 19. Actual compensated BER
-        # ==================================
+        # ======================================
+        # 19. ACTUAL COMPENSATED BER
+        # ======================================
 
         actual_compensated_ber = float(
             calculate_ber(
@@ -523,37 +527,47 @@ class WDMSimulator:
             )
         )
 
-        # ==================================
-        # 20. Estimated compensated BER
-        # ==================================
+        # ======================================
+        # 20. ESTIMATED COMPENSATED BER
+        # ======================================
 
-        # Compensation removes most of the
-        # crosstalk, therefore BER becomes
-        # significantly lower.
+        estimated_compensated_ber = ber_before * (1 - compensation_efficiency)
 
-        compensated_ber = float(
-            max(
+        estimated_compensated_ber = float(
+            np.clip(
+                estimated_compensated_ber,
                 0.000001,
-                ber_before * 0.10,
+                0.20,
             )
         )
-
-        # If the physical receiver actually
-        # observed errors, don't report a
-        # completely unrealistic zero.
 
         if actual_compensated_ber > 0:
 
             compensated_ber = float(
                 max(
-                    compensated_ber,
+                    estimated_compensated_ber,
                     actual_compensated_ber,
                 )
             )
 
-        # ==================================
-        # 21. Return results
-        # ==================================
+        else:
+
+            compensated_ber = estimated_compensated_ber
+
+        # ======================================
+        # 21. ACTUAL BIT ERRORS
+        # ======================================
+
+        actual_bit_errors = int(
+            sum(
+                np.sum(channel_bits[i] != received_bits[i])
+                for i in range(self.number_of_channels)
+            )
+        )
+
+        # ======================================
+        # 22. RETURN RESULTS
+        # ======================================
 
         result = {
             "original_signal": original_signal,
@@ -566,17 +580,14 @@ class WDMSimulator:
             "received_power": received_power,
             "average_crosstalk": average_crosstalk,
             "crosstalk_db": float(crosstalk_db),
+            "physical_crosstalk_db": float(physical_crosstalk_db),
             "bit_errors": estimated_total_errors,
-            "actual_bit_errors": int(
-                sum(
-                    np.sum(channel_bits[i] != received_bits[i])
-                    for i in range(self.number_of_channels)
-                )
-            ),
+            "actual_bit_errors": actual_bit_errors,
             "channel_ber": actual_ber_values,
             "average_ber": average_ber,
             "compensated_ber": float(compensated_ber),
             "actual_compensated_ber": actual_compensated_ber,
+            "compensation_efficiency": float(compensation_efficiency),
             "compensated_signal": compensated_signal,
             "received_signal": received_signal,
             "interference_signal": interference_signal,

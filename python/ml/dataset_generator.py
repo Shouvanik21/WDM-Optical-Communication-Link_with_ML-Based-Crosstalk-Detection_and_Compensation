@@ -64,6 +64,19 @@ REFERENCE_BER = [
 # ==========================================
 # CLASSIFICATION
 # ==========================================
+#
+# We keep the same basic condition:
+#
+# CRITICAL:
+# severe degradation
+#
+# WARNING:
+# moderate degradation
+#
+# NORMAL:
+# healthy optical link
+#
+# ==========================================
 
 
 def classify_condition(snr, crosstalk, ber):
@@ -73,6 +86,7 @@ def classify_condition(snr, crosstalk, ber):
     # --------------------------------------
 
     if snr < 10 or crosstalk > -15 or ber > 0.01:
+
         return 2, "CRITICAL"
 
     # --------------------------------------
@@ -80,6 +94,7 @@ def classify_condition(snr, crosstalk, ber):
     # --------------------------------------
 
     if snr <= 25 or crosstalk >= -25 or ber >= 0.001:
+
         return 1, "WARNING"
 
     # --------------------------------------
@@ -94,7 +109,11 @@ def classify_condition(snr, crosstalk, ber):
 # ==========================================
 
 
-def interpolate(x, x_points, y_points):
+def interpolate(
+    x,
+    x_points,
+    y_points,
+):
 
     # --------------------------------------
     # BELOW RANGE
@@ -158,8 +177,6 @@ def calculate_snr(crosstalk):
 
 def calculate_ber(snr):
 
-    # SNR points must be ascending.
-
     snr_points = [
         9.0,
         11.0,
@@ -184,8 +201,6 @@ def calculate_ber(snr):
         ber_points,
     )
 
-    # BER can never be negative.
-
     return max(
         1e-7,
         ber,
@@ -198,14 +213,32 @@ def calculate_ber(snr):
 #
 # IMPORTANT:
 #
-# We don't directly assign the class.
+# These ranges are now aligned with the
+# actual simulation formula:
 #
-# We generate crosstalk from a region that
-# should normally correspond to the requested
-# operating condition.
+# crosstalk_db =
+# 10 * log10(3 * coupling^2)
 #
-# The final class is STILL determined by
-# classify_condition().
+#
+# NORMAL
+# -------
+# We deliberately keep crosstalk
+# comfortably below -50 dB.
+#
+# This guarantees:
+#
+# SNR > 25 dB
+# BER < 0.001
+#
+#
+# WARNING
+# -------
+# Moderate degradation.
+#
+#
+# CRITICAL
+# --------
+# Strong degradation.
 #
 # ==========================================
 
@@ -214,40 +247,97 @@ def generate_crosstalk_candidate(class_name):
 
     if class_name == "NORMAL":
 
-        # Strong crosstalk suppression.
-        #
-        # This produces SNR above ~25 dB.
-
         return random.uniform(
             -60.0,
-            -50.05,
+            -51.0,
         )
 
     if class_name == "WARNING":
 
-        # Intermediate degradation.
-        #
-        # This covers the region where the
-        # system can have SNR <= 25 while
-        # remaining outside the critical BER
-        # region.
-
         return random.uniform(
-            -49.9,
+            -49.0,
             -22.5,
         )
 
     # --------------------------------------
     # CRITICAL
     # --------------------------------------
-    #
-    # Strong interference.
-    #
 
     return random.uniform(
-        -22.4,
+        -22.0,
         -5.0,
     )
+
+
+# ==========================================
+# GENERATE RECEIVED POWER
+# ==========================================
+#
+# The real simulation uses:
+#
+# optical_power = 0.001 W
+#
+# 50 km fiber with 10 dB loss:
+#
+# power factor = 0.1
+#
+# Therefore the received waveform is
+# around 0.0001 W for a binary 1.
+#
+# The simulator calculates:
+#
+# mean(signal^2)
+#
+# With approximately 50% ones:
+#
+# received power is around:
+#
+# 5e-9
+#
+# ==========================================
+
+
+def generate_received_power():
+
+    return random.uniform(
+        4.0e-9,
+        6.0e-9,
+    )
+
+
+# ==========================================
+# GENERATE AVERAGE CROSSTALK
+# ==========================================
+#
+# Match the physical simulator.
+#
+# Approximately:
+#
+# average crosstalk
+# ≈ received amplitude
+#   × coupling
+#   × average channel activity
+#
+# ==========================================
+
+
+def generate_average_crosstalk(
+    received_power,
+    crosstalk,
+):
+
+    # Convert crosstalk dB to amplitude ratio.
+    #
+    # This follows the same general amplitude
+    # relationship used by the optical signal.
+
+    amplitude_ratio = 10 ** (crosstalk / 20)
+
+    received_amplitude = received_power**0.5
+
+    average_crosstalk = received_amplitude * amplitude_ratio
+
+    return average_crosstalk
 
 
 # ==========================================
@@ -271,8 +361,6 @@ def generate_sample(requested_class):
 
         snr = calculate_snr(crosstalk)
 
-        # Small measurement variation.
-
         snr += random.gauss(
             0,
             0.15,
@@ -283,8 +371,6 @@ def generate_sample(requested_class):
         # ----------------------------------
 
         ber = calculate_ber(snr)
-
-        # Small measurement variation.
 
         ber *= random.uniform(
             0.95,
@@ -307,14 +393,15 @@ def generate_sample(requested_class):
         )
 
         # ----------------------------------
-        # ACCEPT ONLY THE REQUESTED CLASS
+        # ACCEPT ONLY REQUESTED CLASS
         # ----------------------------------
 
         if label != requested_class:
+
             continue
 
         # ----------------------------------
-        # AUXILIARY FEATURES
+        # FIBER LOSS
         # ----------------------------------
 
         fiber_loss = random.uniform(
@@ -322,10 +409,18 @@ def generate_sample(requested_class):
             10.2,
         )
 
+        # ----------------------------------
+        # DISPERSION
+        # ----------------------------------
+
         dispersion = random.uniform(
             83.0,
             87.0,
         )
+
+        # ----------------------------------
+        # NOISE
+        # ----------------------------------
 
         noise_level = random.uniform(
             0.000018,
@@ -336,31 +431,35 @@ def generate_sample(requested_class):
         # RECEIVED POWER
         # ----------------------------------
 
-        received_power = random.uniform(
-            0.8e-9,
-            1.2e-9,
-        )
+        received_power = generate_received_power()
 
         # ----------------------------------
         # AVERAGE CROSSTALK
         # ----------------------------------
 
-        crosstalk_linear_ratio = 10 ** (crosstalk / 20)
-
-        average_crosstalk = received_power**0.5 * crosstalk_linear_ratio
+        average_crosstalk = generate_average_crosstalk(
+            received_power,
+            crosstalk,
+        )
 
         # ----------------------------------
-        # RETURN VALID SAMPLE
+        # RETURN SAMPLE
         # ----------------------------------
 
         return [
-            round(snr, 6),
+            round(
+                snr,
+                6,
+            ),
             received_power,
             noise_level,
             fiber_loss,
             dispersion,
             average_crosstalk,
-            round(crosstalk, 6),
+            round(
+                crosstalk,
+                6,
+            ),
             ber,
             severity,
             label,
@@ -375,8 +474,11 @@ rows = []
 
 
 print()
+
 print("==========================================")
+
 print("       GENERATING WDM DATASET")
+
 print("==========================================")
 
 
@@ -456,8 +558,11 @@ critical_count = sum(1 for row in rows if row[8] == 2)
 # ==========================================
 
 print()
+
 print("==========================================")
+
 print("       WDM DATASET GENERATED")
+
 print("==========================================")
 
 print(f"Dataset : {DATASET_FILE}")
@@ -475,6 +580,7 @@ print(f"CRITICAL : {critical_count}")
 print()
 
 print("Expected Distribution:")
+
 print(f"NORMAL   : {SAMPLES_PER_CLASS}")
 
 print(f"WARNING  : {SAMPLES_PER_CLASS}")
@@ -485,11 +591,11 @@ print()
 
 print("Classification Rules:")
 
-print("NORMAL   : SNR > 25 AND " "Crosstalk < -25 AND BER < 0.001")
+print("NORMAL   : " "SNR > 25 AND " "Crosstalk < -25 AND " "BER < 0.001")
 
-print("WARNING  : SNR <= 25 OR " "Crosstalk >= -25 OR BER >= 0.001")
+print("WARNING  : " "SNR <= 25 OR " "Crosstalk >= -25 OR " "BER >= 0.001")
 
-print("CRITICAL : SNR < 10 OR " "Crosstalk > -15 OR BER > 0.01")
+print("CRITICAL : " "SNR < 10 OR " "Crosstalk > -15 OR " "BER > 0.01")
 
 print()
 
